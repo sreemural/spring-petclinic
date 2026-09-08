@@ -1,49 +1,29 @@
-trigger:
-- main
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-pool:
-  vmImage: 'ubuntu-latest'
+name: Java CI with Maven
 
-steps:
-- checkout: self
-  clean: true
-  displayName: 'Checkout repository'
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-- task: JavaToolInstaller@0
-  displayName: 'Use Java 17'
-  inputs:
-    versionSpec: '17'
-    jdkArchitectureOption: 'x64'
-    jdkSourceOption: 'PreInstalled'
+jobs:
+  build:
 
-- script: |
-    echo "Java version:"
-    java -version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [ '17' ]
 
-    echo "Making Gradle wrapper executable..."
-    chmod +x ./gradlew
-
-    echo "Gradle version:"
-    ./gradlew --version
-  displayName: 'Verify Java and Gradle'
-
-- script: |
-    ./gradlew clean build --no-daemon
-  displayName: 'Build and test application'
-
-- task: PublishTestResults@2
-  displayName: 'Publish test results'
-  condition: succeededOrFailed()
-  inputs:
-    testResultsFormat: 'JUnit'
-    testResultsFiles: '**/build/test-results/test/*.xml'
-    failTaskOnFailedTests: true
-    testRunTitle: 'Java unit tests'
-
-- task: PublishPipelineArtifact@1
-  displayName: 'Publish application artifact'
-  condition: succeeded()
-  inputs:
-    targetPath: '$(Build.SourcesDirectory)/build/libs'
-    artifact: 'application'
-    publishLocation: 'pipeline'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK ${{matrix.java}}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{matrix.java}}
+          distribution: 'adopt'
+          cache: maven
+      - name: Build with Maven Wrapper
+        run: ./mvnw -B package
