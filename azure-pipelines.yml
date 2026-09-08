@@ -1,21 +1,49 @@
-# Node.js with React
-# Build a Node.js project that uses React.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
-
 trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 steps:
-- task: NodeTool@0
+- checkout: self
+  clean: true
+  displayName: 'Checkout repository'
+
+- task: JavaToolInstaller@0
+  displayName: 'Use Java 17'
   inputs:
-    versionSpec: '20.x'
-  displayName: 'Install Node.js'
+    versionSpec: '17'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
 
 - script: |
-    npm install
-    npm run build
-  displayName: 'npm install and build'
+    echo "Java version:"
+    java -version
+
+    echo "Making Gradle wrapper executable..."
+    chmod +x ./gradlew
+
+    echo "Gradle version:"
+    ./gradlew --version
+  displayName: 'Verify Java and Gradle'
+
+- script: |
+    ./gradlew clean build --no-daemon
+  displayName: 'Build and test application'
+
+- task: PublishTestResults@2
+  displayName: 'Publish test results'
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/build/test-results/test/*.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'Java unit tests'
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish application artifact'
+  condition: succeeded()
+  inputs:
+    targetPath: '$(Build.SourcesDirectory)/build/libs'
+    artifact: 'application'
+    publishLocation: 'pipeline'
